@@ -23,6 +23,8 @@ jobs:
 
       - name: Test idle micro animations
         run: bash scripts/test-idle-animation.sh
+      - name: Test link filter
+        run: bash scripts/test-safe-links.sh
 
       - name: Build
         run: |
