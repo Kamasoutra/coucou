@@ -218,13 +218,20 @@ Chaque jalon se termine par build + capture + comparaison aux références + com
 
 ### Plein écran
 
-« Hide over fullscreen apps » est activé par défaut. Quand l’app active est en
-plein écran sur le moniteur de Mochi, le panneau et son contenu SwiftUI
+« Hide over fullscreen apps » est activé par défaut. Quand la fenêtre au premier
+plan du moniteur de Mochi couvre cet écran, le panneau et son contenu SwiftUI
 sont masqués. À la sortie du plein écran, le panneau revient dans son mode courant.
 Les tâches et leur suivi continuent. Une fenêtre simplement maximisée ou un plein
 écran sur un autre moniteur ne suffit pas à masquer Mochi.
-La détection compare les limites de la fenêtre active à celles du moniteur via
+La détection compare les limites de cette fenêtre à celles du moniteur via
 Core Graphics, sur les événements AppKit/Spaces avec une revérification après la
 transition, sans nouvelle boucle de polling. Les fenêtres sans bordure qui couvrent
 tout le moniteur sont également concernées. Une fenêtre maximisée peut aussi être
 concernée si la barre de menus et le Dock sont tous les deux masqués.
+
+Le moniteur au focus clavier ne détermine pas le masquage : travailler sur un
+autre écran ne fait pas réapparaître Mochi sur un écran toujours en plein écran.
+Pendant un changement de Space, le panneau est masqué jusqu’à
+la fin de la transition pour éviter une apparition furtive sur le plein écran.
+La disparition et l’apparition utilisent un fondu de 180 ms, désactivé si macOS
+« Réduire les animations » est activé.

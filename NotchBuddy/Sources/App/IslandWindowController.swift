@@ -16,6 +16,8 @@ final class IslandWindowController: NSWindowController {
     private var keyMonitor: Any?
     private var viewSubscription: AnyCancellable?
     private var fullscreenRefresh: DispatchWorkItem?
+    private var fullscreenTargetHidden = false
+    private var fullscreenTransition = 0
     private var fullscreenNotifications: AnyCancellable?
     private var fullscreenSetting: AnyCancellable?
 
@@ -155,38 +157,68 @@ final class IslandWindowController: NSWindowController {
     }
 
     // Space and activation events can precede the end of the window animation.
-    // Check once now and once after it settles; no continuous fullscreen polling.
+    // Hide during a Space transition, then restore only after its windows settle.
+    // No continuous fullscreen polling.
     private func observeFullscreen() {
         let center = NSWorkspace.shared.notificationCenter
         fullscreenNotifications = center.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
             .merge(with: center.publisher(for: NSWorkspace.didActivateApplicationNotification))
             .merge(with: NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification))
-            .debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refreshFullscreenVisibility() }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                self?.refreshFullscreenVisibility(spaceChanged: notification.name == NSWorkspace.activeSpaceDidChangeNotification)
+            }
         fullscreenSetting = state.$hideInFullscreen
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.refreshFullscreenVisibility() }
     }
 
-    private func refreshFullscreenVisibility() {
+    private func refreshFullscreenVisibility(spaceChanged: Bool = false) {
         fullscreenRefresh?.cancel()
-        updateFullscreenVisibility()
-        guard state.hideInFullscreen else { return }
-        let refresh = DispatchWorkItem { [weak self] in self?.updateFullscreenVisibility() }
+        guard state.hideInFullscreen else {
+            setFullscreenHidden(false)
+            return
+        }
+        if spaceChanged || FullscreenVisibility.shouldHide(on: islandPanel.screen) {
+            setFullscreenHidden(true)
+        }
+        let refresh = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.setFullscreenHidden(self.state.hideInFullscreen && FullscreenVisibility.shouldHide(on: self.islandPanel.screen))
+        }
         fullscreenRefresh = refresh
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(900), execute: refresh)
     }
 
-    private func updateFullscreenVisibility() {
-        guard let panel = window as? IslandPanel else { return }
-        let suppressed = state.hideInFullscreen && FullscreenVisibility.shouldHide(on: panel.screen)
-        guard suppressed != state.isIslandSuppressed else { return }
-        state.isIslandSuppressed = suppressed
-        if suppressed {
+    private func setFullscreenHidden(_ hidden: Bool) {
+        guard let panel = window as? IslandPanel, hidden != fullscreenTargetHidden else { return }
+        fullscreenTargetHidden = hidden
+        fullscreenTransition += 1
+        let transition = fullscreenTransition
+        let duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0.0 : 0.18
+        if hidden {
             panel.resignKey()
-            panel.orderOut(nil)
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = duration
+                panel.animator().alphaValue = 0
+            } completionHandler: { [weak self] in
+                Task { @MainActor in
+                    guard let self, self.fullscreenTargetHidden, self.fullscreenTransition == transition else { return }
+                    self.islandPanel.orderOut(nil)
+                    self.state.isIslandSuppressed = true
+                }
+            }
         } else {
-            panel.orderFrontRegardless()
+            state.isIslandSuppressed = false
+            if !panel.isVisible {
+                panel.alphaValue = 0
+                panel.orderFrontRegardless()
+                panel.contentView?.layoutSubtreeIfNeeded()
+            }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = duration
+                panel.animator().alphaValue = 1
+            }
         }
     }
 

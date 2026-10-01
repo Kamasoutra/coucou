@@ -14,6 +14,11 @@ import AppKit
         precondition(!FullscreenVisibility.shouldHide(screen: .zero, windows: [.zero]))
         precondition(FullscreenVisibility.shouldHide(screen: central, windows: [central.offsetBy(dx: 1, dy: 1)]))
         precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [CGRect(x: 100, y: 100, width: 500, height: 300)]))
-        print("Fullscreen visibility: 10 screen-coverage and multi-display cases passed")
+        let ordinary = CGRect(x: 100, y: 100, width: 500, height: 300)
+        precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [ordinary, central]))
+        precondition(FullscreenVisibility.shouldHide(screen: central, windows: [right, central]))
+        precondition(FullscreenVisibility.shouldHide(screen: central, windows: [central, ordinary]))
+        precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [central.offsetBy(dx: 3, dy: 0)]))
+        print("Fullscreen visibility: 14 coverage, window-order and multi-display cases passed")
     }
 }
