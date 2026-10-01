@@ -23,6 +23,8 @@ jobs:
 
       - name: Test default screen selection
         run: bash scripts/test-screen-selection.sh
+      - name: Test link filter
+        run: bash scripts/test-safe-links.sh
 
       - name: Build
         run: |
