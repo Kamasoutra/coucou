@@ -18,6 +18,9 @@ jobs:
       - name: Generate project
         run: cd NotchBuddy && xcodegen
 
+      - name: Test default screen selection
+        run: bash scripts/test-screen-selection.sh
+
       - name: Build
         run: |
           xcodebuild \

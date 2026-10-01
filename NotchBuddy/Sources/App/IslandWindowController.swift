@@ -44,7 +44,7 @@ final class IslandWindowController: NSWindowController {
     private var notchH: CGFloat = IslandConst.notchHeight
 
     convenience init() {
-        let screen = Self.notchScreen() ?? NSScreen.main!
+        let screen = IslandScreenSelection.preferredScreen(id: AppState.shared.preferredScreenID)!
         let nW = Self.notchWidth(for: screen)
         let nH = Self.notchHeight(for: screen)
 

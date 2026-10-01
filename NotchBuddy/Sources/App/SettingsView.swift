@@ -237,6 +237,8 @@ struct SettingsView: View {
                     .padding(6)
                 }
 
+                IslandScreenPicker(state: state)
+
                 // MARK: Timings
                 GroupBox("Behavior") {
                     VStack(alignment: .leading, spacing: 10) {
