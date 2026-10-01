@@ -14,6 +14,7 @@ struct IslandRootView: View {
             if !state.isIslandSuppressed {
                 IslandContainer(state: state)
                     .frame(maxWidth: .infinity, alignment: .center)
+                    .transition(.opacity)
             }
         }
         .ignoresSafeArea()

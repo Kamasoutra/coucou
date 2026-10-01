@@ -210,13 +210,14 @@ final class IslandWindowController: NSWindowController {
             panel.orderOut(nil)
             state.isIslandSuppressed = true
         } else {
-            state.isIslandSuppressed = false
-            panel.alphaValue = 0
+            // Animate the content's insertion, so the fade starts when SwiftUI
+            // renders it rather than while the newly ordered panel is still empty.
+            panel.alphaValue = 1
             panel.orderFrontRegardless()
-            panel.contentView?.layoutSubtreeIfNeeded()
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0.0 : 0.18
-                panel.animator().alphaValue = 1
+            let animation: Animation? = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                ? nil : .easeOut(duration: 0.18)
+            withAnimation(animation) {
+                state.isIslandSuppressed = false
             }
         }
     }

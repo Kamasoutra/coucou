@@ -235,7 +235,8 @@ la visibilité précédente est conservée : une Space normale ne provoque pas d
 masquage systématique, et deux Spaces plein écran ne provoquent pas de réapparition.
 
 Le masquage est immédiat pour éviter de dessiner Mochi sur la vue plein écran.
-Le retour utilise un fondu de 180 ms, en mode minimisé comme en mode compact,
+Le retour utilise un fondu de 180 ms sur le contenu SwiftUI à son insertion,
+en mode minimisé comme en mode compact,
 désactivé si macOS « Réduire les animations » est activé.
 
 Les fenêtres sans bordure couvrant tout le moniteur sont également concernées.
