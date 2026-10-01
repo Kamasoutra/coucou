@@ -68,6 +68,11 @@ final class AppState: ObservableObject {
     // File drag-over state (mailbox morph glow + mouth spring)
     @Published var fileDragOver: Bool = false
 
+    @Published var isIslandSuppressed: Bool = false
+    @Published var hideInFullscreen: Bool = true {
+        didSet { UserDefaults.standard.set(hideInFullscreen, forKey: "hideInFullscreen") }
+    }
+
     // Sound enabled — persisted
     @Published var soundEnabled: Bool = true {
         didSet { UserDefaults.standard.set(soundEnabled, forKey: "soundEnabled") }
@@ -184,6 +189,7 @@ final class AppState: ObservableObject {
 
     private init() {
         let ud = UserDefaults.standard
+        if let value = ud.object(forKey: "hideInFullscreen") as? Bool { hideInFullscreen = value }
 
         if let v = ud.object(forKey: "soundEnabled") as? Bool   { soundEnabled = v }
         if let v = ud.object(forKey: "soundVolume")  as? Double { soundVolume  = v }

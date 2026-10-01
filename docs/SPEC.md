@@ -215,3 +215,12 @@ Chaque jalon se termine par build + capture + comparaison aux références + com
 - Une session Claude Code n'est jamais bloquée par l'app (app fermée, plantée ou lente → le terminal prend le relais).
 - Hidden = 0 % CPU ; compact < 3 % ; mémoire < 100 Mo.
 - La démo (⌃⌥⌘D) se filme d'une traite sans intervention.
+
+### Plein écran
+
+« Hide over fullscreen apps » est activé par défaut. Quand l’app active est en
+plein écran natif sur le moniteur de Mochi, le panneau et son contenu SwiftUI
+sont masqués. À la sortie du plein écran, le panneau revient dans son mode courant.
+Les tâches et leur suivi continuent. Une fenêtre simplement maximisée ou un plein
+écran sur un autre moniteur ne suffit pas à masquer Mochi.
+La détection utilise les événements AppKit/Spaces, sans nouvelle boucle de polling.

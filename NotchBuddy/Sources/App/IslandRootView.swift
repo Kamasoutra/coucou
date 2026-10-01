@@ -11,8 +11,10 @@ struct IslandRootView: View {
         ZStack(alignment: .top) {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            IslandContainer(state: state)
-                .frame(maxWidth: .infinity, alignment: .center)
+            if !state.isIslandSuppressed {
+                IslandContainer(state: state)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
         .ignoresSafeArea()
     }

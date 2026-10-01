@@ -15,6 +15,9 @@ final class IslandWindowController: NSWindowController {
     private var frameTimer: Timer?
     private var keyMonitor: Any?
     private var viewSubscription: AnyCancellable?
+    private var fullscreenObservation: NSKeyValueObservation?
+    private var fullscreenNotifications: AnyCancellable?
+    private var fullscreenSetting: AnyCancellable?
 
     // Confused recovery timer (set by handleDizzy)
     private var confusedRecoveryTimer: DispatchWorkItem?
@@ -133,6 +136,7 @@ final class IslandWindowController: NSWindowController {
         startPolling()
         startKeyMonitor()
         wireFSM()
+        observeFullscreen()
 
         // Make panel key whenever the prompt/chat view becomes active
         // (nonactivatingPanel never auto-becomes key, but TextField needs it)
@@ -144,6 +148,36 @@ final class IslandWindowController: NSWindowController {
                     self.islandPanel.makeKey()
                 }
             }
+    }
+
+    // Event driven: AppKit reports changes made by the active application.
+    private func observeFullscreen() {
+        fullscreenObservation = NSApp.observe(\.currentSystemPresentationOptions,
+                                               options: [.initial, .new]) { [weak self] _, _ in
+            Task { @MainActor in self?.updateFullscreenVisibility() }
+        }
+        let center = NSWorkspace.shared.notificationCenter
+        fullscreenNotifications = center.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .merge(with: center.publisher(for: NSWorkspace.didActivateApplicationNotification))
+            .merge(with: NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification))
+            .debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateFullscreenVisibility() }
+        fullscreenSetting = state.$hideInFullscreen
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateFullscreenVisibility() }
+    }
+
+    private func updateFullscreenVisibility() {
+        guard let panel = window as? IslandPanel else { return }
+        let suppressed = state.hideInFullscreen && FullscreenVisibility.shouldHide(on: panel.screen)
+        guard suppressed != state.isIslandSuppressed else { return }
+        state.isIslandSuppressed = suppressed
+        if suppressed {
+            panel.resignKey()
+            panel.orderOut(nil)
+        } else {
+            panel.orderFrontRegardless()
+        }
     }
 
     // MARK: - FSM wiring
@@ -200,7 +234,7 @@ final class IslandWindowController: NSWindowController {
     }
 
     private func pollFrame() {
-        guard let panel = window as? IslandPanel else { return }
+        guard let panel = window as? IslandPanel, !state.isIslandSuppressed else { return }
 
         let mouse = NSEvent.mouseLocation
 

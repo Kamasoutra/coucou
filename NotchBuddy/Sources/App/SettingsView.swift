@@ -240,6 +240,7 @@ struct SettingsView: View {
                 // MARK: Timings
                 GroupBox("Behavior") {
                     VStack(alignment: .leading, spacing: 10) {
+                        Toggle("Hide over fullscreen apps", isOn: $state.hideInFullscreen)
                         HStack(spacing: 8) {
                             Text("Close after")
                             TextField("60", value: $state.autoCloseInterval, format: .number)
