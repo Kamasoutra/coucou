@@ -204,7 +204,11 @@ final class IslandWindowController: NSWindowController {
     }
 
     private func setFullscreenHidden(_ hidden: Bool) {
-        guard let panel = window as? IslandPanel, hidden != fullscreenTargetHidden else { return }
+        guard let panel = window as? IslandPanel else { return }
+        // The logical target can be visible while Window Server has lost the
+        // panel from a different desktop Space. Repair that case too.
+        guard hidden != fullscreenTargetHidden || (!hidden && !isPanelOnscreen()) else { return }
+        let contentWasMounted = !state.isIslandSuppressed
         fullscreenTargetHidden = hidden
         fullscreenArrival?.cancel()
         state.isIslandRevealed = false
@@ -212,14 +216,24 @@ final class IslandWindowController: NSWindowController {
             // Hide synchronously. A fade-out would itself flash over fullscreen.
             panel.resignKey()
             panel.alphaValue = 0
-            panel.orderOut(nil)
+            panel.ignoresMouseEvents = true
+            // Keep the all-Spaces panel registered. Ordering it out during a
+            // swipe can leave it absent from a different normal desktop Space.
             state.isIslandSuppressed = true
         } else {
             panel.alphaValue = 1
             panel.orderFrontRegardless()
             // onAppear starts the reveal only after SwiftUI has mounted the content.
             state.isIslandSuppressed = false
+            if contentWasMounted { beginFullscreenArrival() }
         }
+    }
+
+    private func isPanelOnscreen() -> Bool {
+        guard let panel = window, panel.isVisible, panel.isOnActiveSpace else { return false }
+        guard let info = CGWindowListCopyWindowInfo(.optionIncludingWindow, CGWindowID(panel.windowNumber)) as? [[String: Any]]
+        else { return true }
+        return info.first?[kCGWindowIsOnscreen as String] as? Bool == true
     }
 
     private func beginFullscreenArrival() {
