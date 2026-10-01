@@ -16,8 +16,8 @@ final class IslandWindowController: NSWindowController {
     private var keyMonitor: Any?
     private var viewSubscription: AnyCancellable?
     private var fullscreenRefresh: DispatchWorkItem?
+    private var fullscreenDisplayID: CGDirectDisplayID?
     private var fullscreenTargetHidden = false
-    private var fullscreenTransition = 0
     private var fullscreenNotifications: AnyCancellable?
     private var fullscreenSetting: AnyCancellable?
 
@@ -77,6 +77,8 @@ final class IslandWindowController: NSWindowController {
 
     private func setupPanel(screen: NSScreen) {
         guard let panel = window as? IslandPanel else { return }
+        fullscreenDisplayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
+        panel.animationBehavior = .none
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
@@ -150,73 +152,70 @@ final class IslandWindowController: NSWindowController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newView in
                 guard let self else { return }
-                if newView == .prompt {
+                if newView == .prompt && !self.fullscreenTargetHidden {
                     self.islandPanel.makeKey()
                 }
             }
     }
 
-    // Space and activation events can precede the end of the window animation.
-    // Hide during a Space transition, then restore only after its windows settle.
-    // No continuous fullscreen polling.
+    // Check immediately, then follow the window animation to its settled frame.
+    // Keep the physical display ID: a window's screen can change during a swipe.
     private func observeFullscreen() {
         let center = NSWorkspace.shared.notificationCenter
         fullscreenNotifications = center.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
             .merge(with: center.publisher(for: NSWorkspace.didActivateApplicationNotification))
             .merge(with: NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification))
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] notification in
-                self?.refreshFullscreenVisibility(spaceChanged: notification.name == NSWorkspace.activeSpaceDidChangeNotification)
-            }
+            .sink { [weak self] _ in self?.refreshFullscreenVisibility() }
         fullscreenSetting = state.$hideInFullscreen
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.refreshFullscreenVisibility() }
     }
 
-    private func refreshFullscreenVisibility(spaceChanged: Bool = false) {
+    private func fullscreenDecision() -> Bool? {
+        guard let displayID = fullscreenDisplayID else { return false }
+        return FullscreenVisibility.decision(onDisplay: displayID)
+    }
+
+    private func refreshFullscreenVisibility() {
         fullscreenRefresh?.cancel()
+        checkFullscreenVisibility(remainingChecks: 20)
+    }
+
+    private func checkFullscreenVisibility(remainingChecks: Int) {
         guard state.hideInFullscreen else {
             setFullscreenHidden(false)
             return
         }
-        if spaceChanged || FullscreenVisibility.shouldHide(on: islandPanel.screen) {
-            setFullscreenHidden(true)
+        if let hidden = fullscreenDecision() {
+            setFullscreenHidden(hidden)
         }
+        // Space notifications can arrive before a swipe finishes. Follow for up to
+        // two seconds, applying each known decision immediately; no idle polling.
+        guard remainingChecks > 0 else { return }
         let refresh = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.setFullscreenHidden(self.state.hideInFullscreen && FullscreenVisibility.shouldHide(on: self.islandPanel.screen))
+            self?.checkFullscreenVisibility(remainingChecks: remainingChecks - 1)
         }
         fullscreenRefresh = refresh
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(900), execute: refresh)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100), execute: refresh)
     }
 
     private func setFullscreenHidden(_ hidden: Bool) {
         guard let panel = window as? IslandPanel, hidden != fullscreenTargetHidden else { return }
         fullscreenTargetHidden = hidden
-        fullscreenTransition += 1
-        let transition = fullscreenTransition
-        let duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0.0 : 0.18
         if hidden {
+            // Hide synchronously. A fade-out would itself flash over fullscreen.
             panel.resignKey()
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = duration
-                panel.animator().alphaValue = 0
-            } completionHandler: { [weak self] in
-                Task { @MainActor in
-                    guard let self, self.fullscreenTargetHidden, self.fullscreenTransition == transition else { return }
-                    self.islandPanel.orderOut(nil)
-                    self.state.isIslandSuppressed = true
-                }
-            }
+            panel.alphaValue = 0
+            panel.orderOut(nil)
+            state.isIslandSuppressed = true
         } else {
             state.isIslandSuppressed = false
-            if !panel.isVisible {
-                panel.alphaValue = 0
-                panel.orderFrontRegardless()
-                panel.contentView?.layoutSubtreeIfNeeded()
-            }
+            panel.alphaValue = 0
+            panel.orderFrontRegardless()
+            panel.contentView?.layoutSubtreeIfNeeded()
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = duration
+                context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0.0 : 0.18
                 panel.animator().alphaValue = 1
             }
         }
@@ -276,7 +275,7 @@ final class IslandWindowController: NSWindowController {
     }
 
     private func pollFrame() {
-        guard let panel = window as? IslandPanel, !state.isIslandSuppressed else { return }
+        guard let panel = window as? IslandPanel, !fullscreenTargetHidden else { return }
 
         let mouse = NSEvent.mouseLocation
 

@@ -218,20 +218,27 @@ Chaque jalon se termine par build + capture + comparaison aux références + com
 
 ### Plein écran
 
-« Hide over fullscreen apps » est activé par défaut. Quand la fenêtre au premier
-plan du moniteur de Mochi couvre cet écran, le panneau et son contenu SwiftUI
-sont masqués. À la sortie du plein écran, le panneau revient dans son mode courant.
-Les tâches et leur suivi continuent. Une fenêtre simplement maximisée ou un plein
-écran sur un autre moniteur ne suffit pas à masquer Mochi.
-La détection compare les limites de cette fenêtre à celles du moniteur via
-Core Graphics, sur les événements AppKit/Spaces avec une revérification après la
-transition, sans nouvelle boucle de polling. Les fenêtres sans bordure qui couvrent
-tout le moniteur sont également concernées. Une fenêtre maximisée peut aussi être
-concernée si la barre de menus et le Dock sont tous les deux masqués.
+« Hide over fullscreen apps » est activé par défaut. Quand la fenêtre de contenu
+au centre du moniteur de Mochi couvre cet écran, le panneau et son contenu SwiftUI
+sont masqués. Les barres d’outils séparées, comme celle de Zen, ne changent pas cette
+décision. À la sortie du plein écran, le panneau revient dans son mode courant.
+Les tâches et leur suivi continuent. Un plein écran sur un autre moniteur ne
+suffit pas à masquer Mochi.
 
-Le moniteur au focus clavier ne détermine pas le masquage : travailler sur un
-autre écran ne fait pas réapparaître Mochi sur un écran toujours en plein écran.
-Pendant un changement de Space, le panneau est masqué jusqu’à
-la fin de la transition pour éviter une apparition furtive sur le plein écran.
-La disparition et l’apparition utilisent un fondu de 180 ms, désactivé si macOS
-« Réduire les animations » est activé.
+La détection utilise Core Graphics et les événements AppKit/Spaces, avec quelques
+revérifications toutes les 100 ms pendant au plus deux secondes après un événement,
+annulables au prochain événement, sans polling au repos. Le résultat connu est
+appliqué immédiatement ; le retour n’attend pas la fin des deux secondes.
+Le moniteur physique est identifié indépendamment de la position temporaire du
+panneau pendant un swipe. Tant que les fenêtres sont décalées par la transition,
+la visibilité précédente est conservée : une Space normale ne provoque pas de
+masquage systématique, et deux Spaces plein écran ne provoquent pas de réapparition.
+
+Le masquage est immédiat pour éviter de dessiner Mochi sur la vue plein écran.
+Le retour utilise un fondu de 180 ms, en mode minimisé comme en mode compact,
+désactivé si macOS « Réduire les animations » est activé.
+
+Les fenêtres sans bordure couvrant tout le moniteur sont également concernées.
+Une fenêtre maximisée peut aussi être concernée si la barre de menus et le Dock
+sont tous les deux masqués : cette détection n’identifie pas exactement les Spaces
+plein écran natives.

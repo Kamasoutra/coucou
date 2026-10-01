@@ -14,11 +14,29 @@ import AppKit
         precondition(!FullscreenVisibility.shouldHide(screen: .zero, windows: [.zero]))
         precondition(FullscreenVisibility.shouldHide(screen: central, windows: [central.offsetBy(dx: 1, dy: 1)]))
         precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [CGRect(x: 100, y: 100, width: 500, height: 300)]))
-        let ordinary = CGRect(x: 100, y: 100, width: 500, height: 300)
+        let ordinary = CGRect(x: central.midX - 250, y: central.midY - 150, width: 500, height: 300)
         precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [ordinary, central]))
         precondition(FullscreenVisibility.shouldHide(screen: central, windows: [right, central]))
         precondition(FullscreenVisibility.shouldHide(screen: central, windows: [central, ordinary]))
         precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [central.offsetBy(dx: 3, dy: 0)]))
-        print("Fullscreen visibility: 14 coverage, window-order and multi-display cases passed")
+        // Real Zen regression: separate layer-0 toolbar in front of fullscreen content.
+        for y in [0.0, 15.0, 30.0] {
+            let toolbar = CGRect(x: 0, y: y, width: 2560, height: 68)
+            precondition(FullscreenVisibility.shouldHide(screen: central, windows: [toolbar, central]))
+        }
+        let toolbar = CGRect(x: 2560, y: 0, width: 1920, height: 68)
+        precondition(FullscreenVisibility.shouldHide(screen: right, windows: [toolbar, right]))
+        precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [toolbar, right]))
+        precondition(!FullscreenVisibility.shouldHide(screen: central, windows: [CGRect(x: 0, y: 0, width: 2560, height: 68), CGRect(x: 0, y: 30, width: 2560, height: 1050)]))
+        // Actual swipe frames observed between DBeaver and Zen: preserve visibility.
+        for x in [-297.0, 24.0, 57.0, 568.0] {
+            let sliding = central.offsetBy(dx: x, dy: 0)
+            precondition(FullscreenVisibility.decision(screen: central, windows: [sliding]) == nil)
+        }
+        precondition(FullscreenVisibility.decision(screen: central, windows: [central]) == true)
+        precondition(FullscreenVisibility.decision(screen: central, windows: []) == false)
+        precondition(FullscreenVisibility.decision(screen: central, windows: [central.offsetBy(dx: -1300, dy: 0), central.offsetBy(dx: 1324, dy: 0)]) == nil)
+        precondition(FullscreenVisibility.decision(screen: central, windows: [right]) == false)
+        print("Fullscreen visibility: 28 coverage, toolbar, swipe-gap and multi-display cases passed")
     }
 }
