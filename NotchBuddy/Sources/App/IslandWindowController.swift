@@ -15,7 +15,7 @@ final class IslandWindowController: NSWindowController {
     private var frameTimer: Timer?
     private var keyMonitor: Any?
     private var viewSubscription: AnyCancellable?
-    private var fullscreenObservation: NSKeyValueObservation?
+    private var fullscreenRefresh: DispatchWorkItem?
     private var fullscreenNotifications: AnyCancellable?
     private var fullscreenSetting: AnyCancellable?
 
@@ -154,21 +154,27 @@ final class IslandWindowController: NSWindowController {
             }
     }
 
-    // Event driven: AppKit reports changes made by the active application.
+    // Space and activation events can precede the end of the window animation.
+    // Check once now and once after it settles; no continuous fullscreen polling.
     private func observeFullscreen() {
-        fullscreenObservation = NSApp.observe(\.currentSystemPresentationOptions,
-                                               options: [.initial, .new]) { [weak self] _, _ in
-            Task { @MainActor in self?.updateFullscreenVisibility() }
-        }
         let center = NSWorkspace.shared.notificationCenter
         fullscreenNotifications = center.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
             .merge(with: center.publisher(for: NSWorkspace.didActivateApplicationNotification))
             .merge(with: NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification))
             .debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateFullscreenVisibility() }
+            .sink { [weak self] _ in self?.refreshFullscreenVisibility() }
         fullscreenSetting = state.$hideInFullscreen
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateFullscreenVisibility() }
+            .sink { [weak self] _ in self?.refreshFullscreenVisibility() }
+    }
+
+    private func refreshFullscreenVisibility() {
+        fullscreenRefresh?.cancel()
+        updateFullscreenVisibility()
+        guard state.hideInFullscreen else { return }
+        let refresh = DispatchWorkItem { [weak self] in self?.updateFullscreenVisibility() }
+        fullscreenRefresh = refresh
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(900), execute: refresh)
     }
 
     private func updateFullscreenVisibility() {
