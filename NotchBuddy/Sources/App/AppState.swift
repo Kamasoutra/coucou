@@ -70,6 +70,7 @@ final class AppState: ObservableObject {
     @Published var fileDragOver: Bool = false
 
     @Published var isIslandSuppressed: Bool = false
+    @Published var isIslandRevealed: Bool = true
     @Published var hideInFullscreen: Bool = true {
         didSet { UserDefaults.standard.set(hideInFullscreen, forKey: "hideInFullscreen") }
     }

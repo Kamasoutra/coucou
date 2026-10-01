@@ -16,6 +16,7 @@ final class IslandWindowController: NSWindowController {
     private var keyMonitor: Any?
     private var viewSubscription: AnyCancellable?
     private var fullscreenRefresh: DispatchWorkItem?
+    private var fullscreenArrival: DispatchWorkItem?
     private var fullscreenDisplayID: CGDirectDisplayID?
     private var fullscreenTargetHidden = false
     private var fullscreenNotifications: AnyCancellable?
@@ -98,7 +99,9 @@ final class IslandWindowController: NSWindowController {
         let container = NSView(frame: NSRect(origin: .zero, size: contentSize))
         container.autoresizingMask = [.width, .height]
 
-        let hosting = NSHostingView(rootView: IslandRootView().environmentObject(AppState.shared))
+        let hosting = NSHostingView(rootView: IslandRootView(onContentAppear: { [weak self] in
+            self?.beginFullscreenArrival()
+        }).environmentObject(AppState.shared))
         hosting.frame = NSRect(origin: .zero, size: contentSize)
         hosting.autoresizingMask = [.width, .height]
 
@@ -203,6 +206,8 @@ final class IslandWindowController: NSWindowController {
     private func setFullscreenHidden(_ hidden: Bool) {
         guard let panel = window as? IslandPanel, hidden != fullscreenTargetHidden else { return }
         fullscreenTargetHidden = hidden
+        fullscreenArrival?.cancel()
+        state.isIslandRevealed = false
         if hidden {
             // Hide synchronously. A fade-out would itself flash over fullscreen.
             panel.resignKey()
@@ -210,16 +215,52 @@ final class IslandWindowController: NSWindowController {
             panel.orderOut(nil)
             state.isIslandSuppressed = true
         } else {
-            // Animate the content's insertion, so the fade starts when SwiftUI
-            // renders it rather than while the newly ordered panel is still empty.
             panel.alphaValue = 1
             panel.orderFrontRegardless()
-            let animation: Animation? = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-                ? nil : .easeOut(duration: 0.18)
-            withAnimation(animation) {
-                state.isIslandSuppressed = false
+            // onAppear starts the reveal only after SwiftUI has mounted the content.
+            state.isIslandSuppressed = false
+        }
+    }
+
+    private func beginFullscreenArrival() {
+        guard !fullscreenTargetHidden, !state.isIslandRevealed else { return }
+        fullscreenArrival?.cancel()
+        scheduleFullscreenArrival(remainingChecks: 50)
+    }
+
+    private func scheduleFullscreenArrival(remainingChecks: Int) {
+        let arrival = DispatchWorkItem { [weak self] in
+            guard let self, !self.fullscreenTargetHidden else { return }
+            if self.isFullscreenPanelReady() || remainingChecks == 0 {
+                self.fullscreenArrival = nil
+                self.state.isIslandRevealed = true
+            } else {
+                self.scheduleFullscreenArrival(remainingChecks: remainingChecks - 1)
             }
         }
+        fullscreenArrival = arrival
+        // One render turn after onAppear, then only while the panel is returning.
+        // Bound the wait so missing Window Server metadata cannot strand Mochi.
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(20), execute: arrival)
+    }
+
+    private func isFullscreenPanelReady() -> Bool {
+        guard let panel = window, panel.isVisible, panel.isOnActiveSpace,
+              let displayID = fullscreenDisplayID,
+              let screen = NSScreen.screens.first(where: {
+                  ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == displayID
+              }),
+              let info = CGWindowListCopyWindowInfo(.optionIncludingWindow, CGWindowID(panel.windowNumber)) as? [[String: Any]],
+              let entry = info.first,
+              entry[kCGWindowIsOnscreen as String] as? Bool == true,
+              let rectangle = entry[kCGWindowBounds as String] as? [String: Any],
+              let actual = CGRect(dictionaryRepresentation: rectangle as CFDictionary)
+        else { return false }
+        let display = CGDisplayBounds(displayID)
+        let expected = CGRect(x: display.minX + panel.frame.minX - screen.frame.minX,
+                              y: display.minY + screen.frame.maxY - panel.frame.maxY,
+                              width: panel.frame.width, height: panel.frame.height)
+        return FullscreenVisibility.isPanelSettled(expected: expected, actual: actual)
     }
 
     // MARK: - FSM wiring

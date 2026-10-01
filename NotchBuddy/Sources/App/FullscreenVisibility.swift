@@ -25,6 +25,13 @@ enum FullscreenVisibility {
         return decision(screen: CGDisplayBounds(displayID), windows: bounds)
     }
 
+    /// Window Server bounds can lag orderFront during a Space transition.
+    static func isPanelSettled(expected: CGRect, actual: CGRect?) -> Bool {
+        guard let actual else { return false }
+        return abs(actual.minX - expected.minX) <= 2 && abs(actual.minY - expected.minY) <= 2
+            && abs(actual.width - expected.width) <= 2 && abs(actual.height - expected.height) <= 2
+    }
+
     /// Both rectangles use global Quartz coordinates. A normally maximized
     /// window occupies the visible frame, leaving room for the menu bar or Dock.
     /// Screen-filling borderless windows also qualify; this does not identify Spaces.

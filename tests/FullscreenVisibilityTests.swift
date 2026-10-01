@@ -37,6 +37,13 @@ import AppKit
         precondition(FullscreenVisibility.decision(screen: central, windows: []) == false)
         precondition(FullscreenVisibility.decision(screen: central, windows: [central.offsetBy(dx: -1300, dy: 0), central.offsetBy(dx: 1324, dy: 0)]) == nil)
         precondition(FullscreenVisibility.decision(screen: central, windows: [right]) == false)
-        print("Fullscreen visibility: 28 coverage, toolbar, swipe-gap and multi-display cases passed")
+        let restingPanel = CGRect(x: 920, y: 0, width: 720, height: 320)
+        precondition(FullscreenVisibility.isPanelSettled(expected: restingPanel, actual: restingPanel))
+        precondition(!FullscreenVisibility.isPanelSettled(expected: restingPanel, actual: nil))
+        precondition(!FullscreenVisibility.isPanelSettled(expected: restingPanel, actual: restingPanel.offsetBy(dx: 2314, dy: 0)))
+        precondition(!FullscreenVisibility.isPanelSettled(expected: restingPanel, actual: restingPanel.offsetBy(dx: -1702, dy: 0)))
+        precondition(!FullscreenVisibility.isPanelSettled(expected: restingPanel, actual: CGRect(x: 920, y: 0, width: 706, height: 314)))
+        precondition(FullscreenVisibility.isPanelSettled(expected: restingPanel.offsetBy(dx: -1080, dy: -413), actual: restingPanel.offsetBy(dx: -1080, dy: -413)))
+        print("Fullscreen visibility: 34 coverage, toolbar, swipe-gap, multi-display and arrival-frame cases passed")
     }
 }

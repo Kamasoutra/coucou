@@ -235,9 +235,11 @@ la visibilité précédente est conservée : une Space normale ne provoque pas d
 masquage systématique, et deux Spaces plein écran ne provoquent pas de réapparition.
 
 Le masquage est immédiat pour éviter de dessiner Mochi sur la vue plein écran.
-Le retour utilise un fondu de 180 ms sur le contenu SwiftUI à son insertion,
-en mode minimisé comme en mode compact,
-désactivé si macOS « Réduire les animations » est activé.
+Le retour utilise un fondu de 240 ms sur le contenu SwiftUI, en mode minimisé
+comme en mode compact. Il démarre après le montage du contenu et le retour effectif
+du panneau à sa position. L’attente est bornée pour ne pas bloquer le retour si les
+métadonnées sont indisponibles. Le fondu est désactivé si macOS « Réduire les animations »
+est activé.
 
 Les fenêtres sans bordure couvrant tout le moniteur sont également concernées.
 Une fenêtre maximisée peut aussi être concernée si la barre de menus et le Dock
