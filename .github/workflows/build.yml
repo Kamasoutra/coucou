@@ -23,6 +23,8 @@ jobs:
 
       - name: Test multi-screen gaze geometry
         run: bash scripts/test-gaze-geometry.sh
+      - name: Test link filter
+        run: bash scripts/test-safe-links.sh
 
       - name: Build
         run: |
