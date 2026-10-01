@@ -24,6 +24,9 @@ jobs:
       - name: Test fullscreen visibility
         run: bash scripts/test-fullscreen-visibility.sh
 
+      - name: Test link filter
+        run: bash scripts/test-safe-links.sh
+
       - name: Build
         run: |
           xcodebuild \
