@@ -238,6 +238,9 @@ final class IslandWindowController: NSWindowController {
             AppState.shared.lastMouseMove = .now
         }
 
+        // AppState can hide the island by itself (last task ended): keep the FSM in step.
+        if state.mode == .hidden && fsm.state == .petit { fsm.hiddenExternally() }
+
         // Feed FSM hover enter/leave
         if inIsland && !wasInIsland {
             guard !inAttachDrag else { wasInIsland = inIsland; return }
@@ -344,8 +347,8 @@ final class IslandWindowController: NSWindowController {
     func collapse() {
         state.isPinned = false
         finishedPinTimer?.cancel()
-        // Tell FSM we're going to compact (from home)
-        if fsm.state == .home { fsm.mouseLeft() }
+        // Keep the FSM in step with what is on screen (home/coucou → petit now).
+        fsm.collapse()
         setMode(.compact)
         window?.resignKey()
     }
@@ -449,7 +452,12 @@ final class IslandWindowController: NSWindowController {
                 } else {
                     self.attachDragStart = nil
                     if hadPendingClick && self.state.mode != .expanded {
-                        self.fsm.click()   // FSM petit→home; onTransition calls expand(to:)
+                        if self.fsm.state == .home {
+                            // FSM already thinks it's open (e.g. the view folded it): just reopen.
+                            self.expand(to: self.defaultView())
+                        } else {
+                            self.fsm.click()   // FSM petit/hidden→home; onTransition calls expand(to:)
+                        }
                     }
                 }
             }
