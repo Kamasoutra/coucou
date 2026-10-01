@@ -11,6 +11,12 @@ cd NotchBuddy && xcodegen && open NotchBuddy.xcodeproj
 
 Never edit `NotchBuddy.xcodeproj` by hand: change `project.yml` and run `xcodegen`.
 
+Check the optional idle animation's visibility, accessibility and timing rules:
+
+```bash
+bash scripts/test-idle-animation.sh
+```
+
 ## Good first contributions
 
 - A new integration (a poller + a pill + a detail card). Look at `StripePoller.swift` for a compact example.

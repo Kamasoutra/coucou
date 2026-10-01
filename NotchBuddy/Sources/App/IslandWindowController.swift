@@ -227,6 +227,7 @@ final class IslandWindowController: NSWindowController {
         let cur = AppState.shared.mousePosition
         if abs(newPos.x - cur.x) > 1 || abs(newPos.y - cur.y) > 1 {
             AppState.shared.mousePosition = newPos
+            AppState.shared.lastMouseMove = .now
         }
 
         // Feed FSM hover enter/leave
