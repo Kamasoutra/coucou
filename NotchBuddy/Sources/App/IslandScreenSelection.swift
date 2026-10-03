@@ -4,7 +4,6 @@ struct IslandScreenChoice: Identifiable {
     let id: String
     let name: String
 }
-
 enum IslandScreenSelection {
     /// UUIDs identify displays across restarts; display numbers can change.
     @MainActor static func id(for screen: NSScreen) -> String? {
@@ -43,4 +42,3 @@ enum IslandScreenSelection {
         return 0
     }
 }
-
